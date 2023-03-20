@@ -105,16 +105,55 @@ resource "aws_autoscaling_group" "web" {
   }
 }
 
-# Create the autoscaling policy
-resource "aws_autoscaling_policy" "web" {
-  name             = "aws_autoscaling_policy_web"
-  policy_type             = "TargetTrackingScaling"
+# Create the scale up autoscaling policy
+resource "aws_autoscaling_policy" "scale-up" {
+  name = "autoscaling-policy-scaleup"
+  policy_type = "SimpleScaling"
   autoscaling_group_name  = aws_autoscaling_group.web.name
-
-  target_tracking_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ASGAverageCPUUtilization"
-    }
-    target_value = 50.0
+  adjustment_type = "ChangeInCapacity"
+  scaling_adjustment = "1"
+  cooldown = "300"
   }
+
+# Create the scale up cloudwatch alarm
+  resource "aws_cloudwatch_metric_alarm" "cpu-scale-up-alarm" {
+  alarm_name = "cpu-scale-up-alarm"
+  alarm_description = "cpu-scale-up-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods = "2"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  period = "10"
+  statistic = "Average"
+  threshold = "50"
+  dimensions = {
+  "AutoScalingGroupName" = aws_autoscaling_group.web.name
+  }
+  alarm_actions = ["${aws_autoscaling_policy.scale-up.arn}"]
+  }
+
+# Create the scale down autoscaling policy
+  resource "aws_autoscaling_policy" "scale-down" {
+name = "autoscaling-policy-scaledown"
+policy_type = "SimpleScaling"
+autoscaling_group_name  = aws_autoscaling_group.web.name
+adjustment_type = "ChangeInCapacity"
+scaling_adjustment = "-1"
+cooldown = "300"
+}
+
+# Create the scale down cloudwatch alarm
+resource "aws_cloudwatch_metric_alarm" "cpu-scale-down-alarm" {
+alarm_name = "cpu-scaledown-alarm"
+comparison_operator = "LessThanOrEqualToThreshold"
+evaluation_periods = "2"
+metric_name = "CPUUtilization"
+namespace = "AWS/EC2"
+period = "10"
+statistic = "Average"
+threshold = "49"
+dimensions = {
+"AutoScalingGroupName" = aws_autoscaling_group.web.name
+}
+alarm_actions = ["${aws_autoscaling_policy.scale-down.arn}"]
 }
