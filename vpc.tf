@@ -50,7 +50,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "public_route_tavble"
+    Name = "public_route_table"
   }
 }
 
