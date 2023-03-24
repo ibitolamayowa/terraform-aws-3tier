@@ -21,6 +21,9 @@ resource "aws_subnet" "private" {
   cidr_block = "10.0.${count.index + 10}.0/24"
   vpc_id = aws_vpc.aws_vpc.id
   availability_zone = "us-west-2${element(["a", "b"], count.index % 2)}"
+  tags = {
+    Name = "private_subnet_${count.index + 1}"
+  }
 }
 
 # Create an internet gateway for the public subnets
@@ -63,6 +66,7 @@ resource "aws_route_table_association" "public" {
 
 # Create a route table for the private subnets
 resource "aws_route_table" "private" {
+  for_each = { for s in aws_subnet.private : s.tags.Name => s }
   vpc_id = aws_vpc.aws_vpc.id
 
   route {
@@ -71,15 +75,17 @@ resource "aws_route_table" "private" {
   }
 
   tags = {
-    Name = "private_route_table"
+    Name = "private_route_table_${each.key}"
   }
 }
 
+
 # Associate the private subnets with the private route table
 resource "aws_route_table_association" "private" {
-  count = 4
-  subnet_id = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
+  for_each = { for s in aws_subnet.private : s.tags.Name => s }
+
+  subnet_id = each.value.id
+  route_table_id = aws_route_table.private[each.key].id
 }
 
 output "availability_zones_private" {
